@@ -1,17 +1,38 @@
 #!/usr/bin/env python3
-"""Generate comprehensive emoji data using official Unicode emoji data."""
+"""Generate comprehensive emoji data using the emoji library."""
 
 import json
-import emoji
+import os
 import re
-import urllib.request
+import emoji
+from collections import defaultdict
 
 def clean_emoji_name(raw_name):
     """Clean up emoji names from the library format."""
     name = raw_name.strip(':')
     name = name.replace('_', ' ')
+    name = name.replace('&', 'and')
     name = ' '.join(word.capitalize() for word in name.split())
     return name
+
+def extract_categories_from_name(raw_name):
+    """Extract all categories from emoji name by splitting on underscores."""
+    name = raw_name.strip(':')
+    parts = name.split('_')
+
+    # Clean up parts - remove numbers, short parts, and special cases
+    categories = []
+    for part in parts:
+        # Skip numbers and very short parts
+        if part.isdigit() or len(part) < 2:
+            continue
+        # Skip common connectors
+        if part in ['with', 'and', 'of', 'for', 'in', 'on', 'at', 'to', 'by']:
+            continue
+        # Capitalize and add
+        categories.append(part.capitalize())
+
+    return categories
 
 def get_base_name(emoji_name):
     """Extract base name from emoji, removing variant indicators."""
@@ -46,119 +67,58 @@ def should_group(base_name, full_name):
 
     return has_variant
 
-def fetch_unicode_emoji_data():
-    """Fetch official Unicode emoji test data with categories and subgroups."""
-    try:
-        url = "https://www.unicode.org/Public/17.0.0/emoji/emoji-test.txt"
-        print(f"Fetching Unicode emoji data from {url}...")
-
-        with urllib.request.urlopen(url) as response:
-            data = response.read().decode('utf-8')
-
-        # Parse the emoji-test.txt format
-        # Format: code_point ; status ; emoji ; name
-        # Also extract group and subgroup from comments
-        emoji_to_category = {}
-        current_group = "Symbols"
-        current_subgroup = "Other"
-
-        for line in data.split('\n'):
-            line = line.strip()
-
-            # Extract group from comment lines like: # group: Smileys & Emotion
-            if line.startswith('# group:'):
-                current_group = line.split('group:')[1].strip()
-                continue
-
-            # Extract subgroup from comment lines like: # subgroup: face-smiling
-            if line.startswith('# subgroup:'):
-                current_subgroup = line.split('subgroup:')[1].strip()
-                continue
-
-            if not line or line.startswith('#'):
-                continue
-
-            if ';' in line:
-                parts = [p.strip() for p in line.split(';')]
-                if len(parts) >= 4:
-                    code_point_str = parts[0]
-                    status = parts[1]
-
-                    try:
-                        # Handle code points (can be multiple like "1F1E6 1F1E8")
-                        code_points = code_point_str.split()
-                        if code_points:
-                            # Get the first code point to determine category
-                            first_cp = int(code_points[0], 16)
-                            emoji_char = chr(first_cp)
-
-                            if emoji_char not in emoji_to_category:
-                                emoji_to_category[emoji_char] = current_group
-                    except:
-                        pass
-
-        return emoji_to_category
-    except Exception as e:
-        print(f"Failed to fetch Unicode data: {e}")
-        return {}
-
-def get_category_from_name(emoji_name):
-    """Get category based on emoji name."""
-    name = emoji_name.lower()
-
-    if any(x in name for x in ['face', 'smile', 'grin', 'laugh', 'cry', 'eye', 'mouth']):
-        return "Smileys & Emotions"
-    elif any(x in name for x in ['animal', 'cat', 'dog', 'bird', 'monkey', 'bear', 'panda', 'fish', 'bug', 'butterfly', 'lion', 'tiger', 'whale', 'shark', 'snake', 'frog', 'penguin']):
-        return "Animals & Nature"
-    elif any(x in name for x in ['plant', 'tree', 'flower', 'leaf', 'mushroom', 'cactus', 'herb', 'clover']):
-        return "Animals & Nature"
-    elif any(x in name for x in ['food', 'fruit', 'pizza', 'burger', 'rice', 'bread', 'apple', 'orange', 'banana', 'watermelon', 'grape', 'strawberry', 'meat', 'cake', 'candy', 'coffee', 'beer', 'wine']):
-        return "Food & Drink"
-    elif any(x in name for x in ['car', 'train', 'bus', 'airplane', 'rocket', 'ship', 'boat', 'bicycle', 'motorcycle', 'taxi', 'truck', 'travel']):
-        return "Travel & Places"
-    elif any(x in name for x in ['flag', 'country']):
-        return "Flags"
-    elif any(x in name for x in ['heart', 'star', 'diamond', 'gem', 'sparkle', 'sun', 'moon', 'cloud', 'fire', 'water', 'arrow', 'check', 'cross']):
-        return "Symbols"
-    else:
-        return "Symbols"
-
 def generate_emoji_data():
-    """Generate emoji data using the emoji library with proper categories from Unicode data."""
+    """Generate emoji data using the emoji library with categories extracted from names."""
     all_emojis = []
     seen = set()
-
-    # Fetch Unicode category mapping
-    unicode_categories = fetch_unicode_emoji_data()
+    category_counts = defaultdict(int)
 
     # Get all emojis from the library
     all_emoji_data = emoji.EMOJI_DATA
 
+    # First pass: collect all emojis and count categories
     for emoji_char, data in all_emoji_data.items():
         if emoji_char in seen:
             continue
 
         try:
-            raw_name = data.get('en', emoji_char)
-            name = clean_emoji_name(raw_name)
-
-            if name == emoji_char or not name:
+            raw_name = data.get('en', '')
+            if not raw_name or raw_name == emoji_char:
                 continue
 
-            # Get category from Unicode data first, fall back to name-based categorization
-            if emoji_char in unicode_categories:
-                category = unicode_categories[emoji_char]
-            else:
-                category = get_category_from_name(name)
+            name = clean_emoji_name(raw_name)
+            if not name:
+                continue
+
+            # Extract categories from the name
+            categories = extract_categories_from_name(raw_name)
 
             all_emojis.append({
                 "emoji": emoji_char,
                 "name": name,
-                "category": category,
+                "raw_name": raw_name,
+                "categories": categories,
             })
             seen.add(emoji_char)
+
+            # Count categories
+            for cat in categories:
+                category_counts[cat] += 1
         except Exception as e:
             pass
+
+    # Filter categories to only those with 3+ emojis
+    valid_categories = {cat for cat, count in category_counts.items() if count >= 3}
+
+    # Assign primary category (first valid one, or "Other")
+    for emoji_item in all_emojis:
+        valid_cats = [cat for cat in emoji_item['categories'] if cat in valid_categories]
+        emoji_item['category'] = valid_cats[0] if valid_cats else 'Other'
+
+    # Remove the temporary fields
+    for emoji_item in all_emojis:
+        del emoji_item['raw_name']
+        del emoji_item['categories']
 
     # Group variants
     grouped_emojis = {}
