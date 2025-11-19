@@ -1,540 +1,224 @@
 #!/usr/bin/env python3
-"""Generate comprehensive emoji data JSON file."""
+"""Generate comprehensive emoji data using official Unicode emoji data."""
 
 import json
-import unicodedata
+import emoji
+import re
+import urllib.request
 
-# Emoji categories and ranges
-EMOJI_CATEGORIES = {
-    "Smileys & People": {
-        "ranges": [(0x1F600, 0x1F64F), (0x1F900, 0x1F9FF)],
-    },
-    "Animals & Nature": {
-        "ranges": [(0x1F300, 0x1F5FF), (0x1F680, 0x1F6FF)],
-    },
-    "Food & Drink": {
-        "ranges": [(0x1F32D, 0x1F37F)],
-    },
-    "Travel & Places": {
-        "ranges": [(0x1F680, 0x1F6FF)],
-    },
-    "Activities": {
-        "ranges": [(0x1F300, 0x1F5FF)],
-    },
-    "Objects": {
-        "ranges": [(0x1F300, 0x1F9FF)],
-    },
-    "Symbols": {
-        "ranges": [(0x1F300, 0x1F9FF)],
-    },
-}
+def clean_emoji_name(raw_name):
+    """Clean up emoji names from the library format."""
+    name = raw_name.strip(':')
+    name = name.replace('_', ' ')
+    name = ' '.join(word.capitalize() for word in name.split())
+    return name
 
-# Common emoji with categories (more reliable approach)
-EMOJIS = [
-    # Smileys
-    ("😀", "grinning face", "Smileys"),
-    ("😃", "grinning face with big eyes", "Smileys"),
-    ("😄", "grinning face with smiling eyes", "Smileys"),
-    ("😁", "beaming face with smiling eyes", "Smileys"),
-    ("😆", "grinning squinting face", "Smileys"),
-    ("😅", "grinning face with sweat", "Smileys"),
-    ("🤣", "rolling on the floor laughing", "Smileys"),
-    ("😂", "face with tears of joy", "Smileys"),
-    ("🙂", "slightly smiling face", "Smileys"),
-    ("🙃", "upside down face", "Smileys"),
-    ("😉", "winking face", "Smileys"),
-    ("😊", "smiling face with smiling eyes", "Smileys"),
-    ("😇", "smiling face with halo", "Smileys"),
-    ("🥰", "smiling face with hearts", "Smileys"),
-    ("😍", "smiling face with heart eyes", "Smileys"),
-    ("🤩", "star struck", "Smileys"),
-    ("😘", "face blowing a kiss", "Smileys"),
-    ("😗", "kissing face", "Smileys"),
-    ("😚", "kissing face with closed eyes", "Smileys"),
-    ("😙", "kissing face with smiling eyes", "Smileys"),
-    ("🥲", "smiling face with tear", "Smileys"),
-    ("😋", "face savoring food", "Smileys"),
-    ("😛", "face with tongue", "Smileys"),
-    ("😜", "winking face with tongue", "Smileys"),
-    ("🤪", "zany face", "Smileys"),
-    ("😌", "relieved face", "Smileys"),
-    ("😔", "pensive face", "Smileys"),
-    ("😑", "expressionless face", "Smileys"),
-    ("😐", "neutral face", "Smileys"),
-    ("😶", "face with mouth covered", "Smileys"),
-    ("😏", "smirking face", "Smileys"),
-    ("😒", "unamused face", "Smileys"),
-    ("🙁", "slightly frowning face", "Smileys"),
-    ("😬", "grimacing face", "Smileys"),
-    ("🤥", "lying face", "Smileys"),
-    ("😌", "relieved face", "Smileys"),
-    ("😔", "pensive face", "Smileys"),
-    ("😪", "sleepy face", "Smileys"),
-    ("🤤", "drooling face", "Smileys"),
-    ("😴", "sleeping face", "Smileys"),
-    ("😷", "face with medical mask", "Smileys"),
-    ("🤒", "face with thermometer", "Smileys"),
-    ("🤕", "face with head bandage", "Smileys"),
-    ("🤢", "nauseated face", "Smileys"),
-    ("🤮", "face vomiting", "Smileys"),
-    ("🤧", "sneezing face", "Smileys"),
-    ("🤋", "person shrugging", "Smileys"),
-    ("🤨", "face with raised eyebrow", "Smileys"),
-    ("😐", "neutral face", "Smileys"),
-    ("😑", "expressionless face", "Smileys"),
-    ("😕", "confused face", "Smileys"),
-    ("🙁", "slightly frowning face", "Smileys"),
-    ("☹️", "frowning face", "Smileys"),
-    ("😲", "astonished face", "Smileys"),
-    ("😞", "disappointed face", "Smileys"),
-    ("😖", "confounded face", "Smileys"),
-    ("😢", "crying face", "Smileys"),
-    ("😭", "loudly crying face", "Smileys"),
-    ("😤", "face with steam from nose", "Smileys"),
-    ("😠", "pouting face", "Smileys"),
-    ("😡", "pouting face", "Smileys"),
-    ("🤬", "face with symbols on mouth", "Smileys"),
-    ("😈", "smiling face with horns", "Smileys"),
-    ("👿", "angry face with horns", "Smileys"),
-    ("💀", "skull", "Smileys"),
-    ("☠️", "skull and crossbones", "Smileys"),
+def get_base_name(emoji_name):
+    """Extract base name from emoji, removing variant indicators."""
+    name = emoji_name
 
-    # Hand Gestures
-    ("👋", "waving hand", "People"),
-    ("🤚", "raised back of hand", "People"),
-    ("🖐️", "hand with fingers splayed", "People"),
-    ("✋", "raised hand", "People"),
-    ("🖖", "vulcan salute", "People"),
-    ("👌", "ok hand", "People"),
-    ("🤌", "pinched fingers", "People"),
-    ("🤏", "pinching hand", "People"),
-    ("✌️", "victory hand", "People"),
-    ("🤞", "crossed fingers", "People"),
-    ("🫰", "hand with index and middle finger crossed", "People"),
-    ("🤟", "sign of the horns", "People"),
-    ("🤘", "sign of the horns", "People"),
-    ("🤙", "call me hand", "People"),
-    ("👈", "backhand index pointing left", "People"),
-    ("👉", "backhand index pointing right", "People"),
-    ("👆", "backhand index pointing up", "People"),
-    ("👇", "backhand index pointing down", "People"),
-    ("☝️", "index pointing up", "People"),
-    ("👍", "thumbs up", "People"),
-    ("👎", "thumbs down", "People"),
-    ("✊", "raised fist", "People"),
-    ("👊", "oncoming fist", "People"),
-    ("👏", "clapping hands", "People"),
-    ("🙌", "raising hands", "People"),
-    ("👐", "open hands", "People"),
-    ("🤲", "open palms up together", "People"),
-    ("🤝", "handshake", "People"),
-    ("🤜", "right facing fist", "People"),
-    ("🤛", "left facing fist", "People"),
-    ("🤚", "raised back of hand", "People"),
-    ("💅", "nail polish", "People"),
-    ("🦾", "mechanical arm", "People"),
-    ("🦿", "mechanical leg", "People"),
-    ("👂", "ear", "People"),
-    ("👃", "nose", "People"),
-    ("🧠", "brain", "People"),
-    ("🦷", "tooth", "People"),
-    ("🦴", "bone", "People"),
-    ("👀", "eyes", "People"),
-    ("👁️", "eye", "People"),
-    ("👅", "tongue", "People"),
-    ("❤️", "red heart", "People"),
-    ("🧡", "orange heart", "People"),
-    ("💛", "yellow heart", "People"),
-    ("💚", "green heart", "People"),
-    ("💙", "blue heart", "People"),
-    ("💜", "purple heart", "People"),
-    ("🖤", "black heart", "People"),
-    ("🤍", "white heart", "People"),
-    ("🤎", "brown heart", "People"),
-    ("💔", "broken heart", "People"),
+    # Remove skin tone modifiers
+    name = re.sub(r'\s+(Light|Medium\s+Light|Medium|Medium\s+Dark|Dark)\s+Skin\s+Tone.*$', '', name)
 
-    # Animals
-    ("🐶", "dog face", "Animals"),
-    ("🐱", "cat face", "Animals"),
-    ("🐭", "mouse face", "Animals"),
-    ("🐹", "hamster", "Animals"),
-    ("🐰", "rabbit face", "Animals"),
-    ("🦊", "fox", "Animals"),
-    ("🐻", "bear", "Animals"),
-    ("🐼", "panda", "Animals"),
-    ("🐨", "koala", "Animals"),
-    ("🐯", "tiger face", "Animals"),
-    ("🦁", "lion", "Animals"),
-    ("🐮", "cow face", "Animals"),
-    ("🐷", "pig face", "Animals"),
-    ("🐸", "frog", "Animals"),
-    ("🐵", "monkey face", "Animals"),
-    ("🙈", "see no evil monkey", "Animals"),
-    ("🙉", "hear no evil monkey", "Animals"),
-    ("🙊", "speak no evil monkey", "Animals"),
-    ("🐒", "monkey", "Animals"),
-    ("🐔", "chicken", "Animals"),
-    ("🐧", "penguin", "Animals"),
-    ("🐦", "bird", "Animals"),
-    ("🐤", "baby chick", "Animals"),
-    ("🦆", "duck", "Animals"),
-    ("🦅", "eagle", "Animals"),
-    ("🦉", "owl", "Animals"),
-    ("🦇", "bat", "Animals"),
-    ("🐺", "wolf", "Animals"),
-    ("🐗", "boar", "Animals"),
-    ("🐴", "horse face", "Animals"),
-    ("🦄", "unicorn", "Animals"),
-    ("🐝", "honeybee", "Animals"),
-    ("🪱", "basket", "Animals"),
-    ("🐛", "bug", "Animals"),
-    ("🦋", "butterfly", "Animals"),
-    ("🐌", "snail", "Animals"),
-    ("🐞", "lady beetle", "Animals"),
-    ("🐜", "ant", "Animals"),
-    ("🪰", "fly", "Animals"),
-    ("🪲", "beetle", "Animals"),
-    ("🦟", "mosquito", "Animals"),
-    ("🦠", "microbe", "Animals"),
-    ("🐢", "turtle", "Animals"),
-    ("🐍", "snake", "Animals"),
-    ("🦎", "lizard", "Animals"),
-    ("🦖", "t-rex", "Animals"),
-    ("🦕", "sauropod", "Animals"),
-    ("🐙", "octopus", "Animals"),
-    ("🦑", "squid", "Animals"),
-    ("🦐", "shrimp", "Animals"),
-    ("🦞", "lobster", "Animals"),
-    ("🦀", "crab", "Animals"),
-    ("🐡", "blowfish", "Animals"),
-    ("🐠", "tropical fish", "Animals"),
-    ("🐟", "fish", "Animals"),
-    ("🐬", "dolphin", "Animals"),
-    ("🐳", "spouting whale", "Animals"),
-    ("🐋", "whale", "Animals"),
-    ("🦈", "shark", "Animals"),
+    # Remove hair style variants
+    name = re.sub(r'\s+(Red|Curly|Wavy|Straight)\s+Hair.*$', '', name)
 
-    # Food
-    ("🍏", "green apple", "Food"),
-    ("🍎", "red apple", "Food"),
-    ("🍐", "pear", "Food"),
-    ("🍊", "orange", "Food"),
-    ("🍋", "lemon", "Food"),
-    ("🍌", "banana", "Food"),
-    ("🍉", "watermelon", "Food"),
-    ("🍇", "grapes", "Food"),
-    ("🍓", "strawberry", "Food"),
-    ("🍈", "melon", "Food"),
-    ("🍒", "cherries", "Food"),
-    ("🍑", "peach", "Food"),
-    ("🥭", "mango", "Food"),
-    ("🍍", "pineapple", "Food"),
-    ("🥥", "coconut", "Food"),
-    ("🥑", "avocado", "Food"),
-    ("🍆", "eggplant", "Food"),
-    ("🍅", "tomato", "Food"),
-    ("🍄", "mushroom", "Food"),
-    ("🥔", "potato", "Food"),
-    ("🥐", "croissant", "Food"),
-    ("🥯", "bagel", "Food"),
-    ("🍞", "bread", "Food"),
-    ("🥖", "baguette bread", "Food"),
-    ("🥨", "pretzel", "Food"),
-    ("🧀", "cheese wedge", "Food"),
-    ("🥚", "egg", "Food"),
-    ("🍳", "cooking", "Food"),
-    ("🧈", "butter", "Food"),
-    ("🥞", "pancakes", "Food"),
-    ("🥓", "bacon", "Food"),
-    ("🥩", "cut of meat", "Food"),
-    ("🍗", "poultry leg", "Food"),
-    ("🍖", "meat on bone", "Food"),
-    ("🌭", "hot dog", "Food"),
-    ("🍔", "hamburger", "Food"),
-    ("🍟", "french fries", "Food"),
-    ("🍕", "pizza", "Food"),
-    ("🥪", "sandwich", "Food"),
-    ("🥙", "stuffed flatbread", "Food"),
-    ("🧆", "falafel", "Food"),
-    ("🌮", "taco", "Food"),
-    ("🌯", "burrito", "Food"),
-    ("🥗", "green salad", "Food"),
-    ("🥘", "paella", "Food"),
-    ("🥫", "canned food", "Food"),
-    ("🍝", "spaghetti", "Food"),
-    ("🍜", "steaming bowl", "Food"),
-    ("🍲", "pot of food", "Food"),
-    ("🍛", "curry rice", "Food"),
-    ("🍣", "sushi", "Food"),
-    ("🍱", "bento box", "Food"),
-    ("🥟", "dumpling", "Food"),
-    ("🦪", "oyster", "Food"),
-    ("🍤", "fried shrimp", "Food"),
-    ("🍚", "cooked rice", "Food"),
-    ("🍙", "rice ball", "Food"),
-    ("🍚", "cooked rice", "Food"),
-    ("🍛", "curry rice", "Food"),
-    ("🍜", "steaming bowl", "Food"),
-    ("🍝", "spaghetti", "Food"),
-    ("🍠", "roasted sweet potato", "Food"),
-    ("🍢", "oden", "Food"),
-    ("🍣", "sushi", "Food"),
-    ("🍤", "fried shrimp", "Food"),
-    ("🍥", "fish cake with swirl", "Food"),
-    ("🍑", "peach", "Food"),
-    ("🍶", "sake", "Drink"),
-    ("🍵", "teacup without handle", "Drink"),
-    ("🍶", "sake", "Drink"),
-    ("☕", "hot beverage", "Drink"),
-    ("🍾", "bottle with popping cork", "Drink"),
-    ("🍷", "wine glass", "Drink"),
-    ("🍸", "cocktail glass", "Drink"),
-    ("🍹", "tropical drink", "Drink"),
-    ("🍺", "beer mug", "Drink"),
-    ("🍻", "clinking beer mugs", "Drink"),
-    ("🥂", "clinking glasses", "Drink"),
-    ("🥃", "popcorn", "Food"),
+    # Remove gender prefixes but keep what comes after
+    name = re.sub(r'^(Person|Man|Woman|Non.?Binary)\s+', '', name)
 
-    # Activities
-    ("⚽", "soccer ball", "Activities"),
-    ("🏀", "basketball", "Activities"),
-    ("🏈", "american football", "Activities"),
-    ("⚾", "baseball", "Activities"),
-    ("🥎", "softball", "Activities"),
-    ("🎾", "tennis", "Activities"),
-    ("🏐", "volleyball", "Activities"),
-    ("🏉", "rugby football", "Activities"),
-    ("🥏", "cricket game", "Activities"),
-    ("🎱", "pool 8 ball", "Activities"),
-    ("🪀", "yo-yo", "Activities"),
-    ("🏓", "ping pong", "Activities"),
-    ("🏸", "badminton", "Activities"),
-    ("🏒", "ice hockey", "Activities"),
-    ("🏑", "field hockey", "Activities"),
-    ("🥍", "lacrosse", "Activities"),
-    ("🏏", "cricket bat and ball", "Activities"),
-    ("🪃", "boomerang", "Activities"),
-    ("🥅", "goal net", "Activities"),
-    ("⛳", "flag in hole", "Activities"),
-    ("⛸️", "ice skate", "Activities"),
-    ("🎣", "fishing pole", "Activities"),
-    ("🎽", "running shirt", "Activities"),
-    ("🎿", "skis", "Activities"),
-    ("🛷", "sled", "Activities"),
-    ("🛹", "skateboard", "Activities"),
-    ("🛼", "roller skate", "Activities"),
-    ("🛺", "auto rickshaw", "Activities"),
-    ("🛻", "pickup truck", "Activities"),
-    ("🎮", "video game", "Activities"),
-    ("🎯", "direct hit", "Activities"),
+    # Remove common color suffixes
+    name = re.sub(r'\s+(Red|Orange|Yellow|Green|Blue|Purple|Brown|Black|White|Light|Dark|Medium)$', '', name)
 
-    # Travel
-    ("✈️", "airplane", "Travel"),
-    ("🛫", "airplane departure", "Travel"),
-    ("🛬", "airplane arrival", "Travel"),
-    ("🛩️", "small airplane", "Travel"),
-    ("💺", "seat", "Travel"),
-    ("🛰️", "satellite", "Travel"),
-    ("🚁", "helicopter", "Travel"),
-    ("🛶", "canoe", "Travel"),
-    ("⛵", "sailboat", "Travel"),
-    ("🚤", "speedboat", "Travel"),
-    ("🛳️", "passenger ship", "Travel"),
-    ("🛲", "motor boat", "Travel"),
-    ("🛴", "kick scooter", "Travel"),
-    ("🛵", "motor scooter", "Travel"),
-    ("🏎️", "racing car", "Travel"),
-    ("🏍️", "motorcycle", "Travel"),
-    ("🛺", "auto rickshaw", "Travel"),
-    ("🚨", "police car light", "Travel"),
-    ("🚔", "oncoming police car", "Travel"),
-    ("🚍", "oncoming bus", "Travel"),
-    ("🚘", "oncoming automobile", "Travel"),
-    ("🚖", "oncoming taxi", "Travel"),
-    ("🚡", "mountain cableway", "Travel"),
-    ("🚠", "mountain cableway", "Travel"),
-    ("🚟", "suspension railway", "Travel"),
-    ("🚃", "railway car", "Travel"),
-    ("🚋", "tram car", "Travel"),
-    ("🚞", "mountain railway", "Travel"),
-    ("🚝", "aerial tramway", "Travel"),
-    ("🚄", "high speed train", "Travel"),
-    ("🚅", "bullet train", "Travel"),
-    ("🚈", "light rail", "Travel"),
-    ("🚂", "locomotive", "Travel"),
-    ("🚆", "train", "Travel"),
-    ("🚇", "metro", "Travel"),
-    ("🚇", "metro", "Travel"),
-    ("🚊", "tram", "Travel"),
-    ("🚉", "station", "Travel"),
-    ("✈️", "airplane", "Travel"),
-    ("💈", "barber pole", "Objects"),
-    ("🎨", "artist palette", "Objects"),
-    ("🎬", "clapper board", "Objects"),
-    ("🎤", "microphone", "Objects"),
-    ("🎧", "headphone", "Objects"),
-    ("🎼", "musical score", "Objects"),
-    ("🎹", "musical keyboard", "Objects"),
-    ("🥁", "drum", "Objects"),
-    ("🎷", "saxophone", "Objects"),
-    ("🎺", "trumpet", "Objects"),
-    ("🎸", "guitar", "Objects"),
-    ("🥂", "clinking glasses", "Objects"),
-    ("🍾", "bottle with popping cork", "Objects"),
-    ("🍷", "wine glass", "Objects"),
-    ("🍸", "cocktail glass", "Objects"),
-    ("🍹", "tropical drink", "Objects"),
-    ("🍺", "beer mug", "Objects"),
-    ("🍻", "clinking beer mugs", "Objects"),
-    ("🍽️", "fork and knife with plate", "Objects"),
-    ("🍴", "fork and knife", "Objects"),
-    ("🥄", "spoon", "Objects"),
-    ("🔓", "open lock", "Objects"),
-    ("🔒", "locked", "Objects"),
-    ("🔏", "locked with pen", "Objects"),
-    ("🔐", "locked with key", "Objects"),
-    ("🔑", "key", "Objects"),
-    ("🔨", "hammer", "Objects"),
-    ("🪓", "axe", "Objects"),
-    ("⛏️", "pick", "Objects"),
-    ("⚒️", "hammer and pick", "Objects"),
-    ("🛠️", "hammer and wrench", "Objects"),
-    ("🗡️", "dagger", "Objects"),
-    ("⚔️", "crossed swords", "Objects"),
-    ("🔫", "water pistol", "Objects"),
-    ("🪃", "boomerang", "Objects"),
-    ("🛒", "shopping cart", "Objects"),
-    ("🚬", "cigarette", "Objects"),
-    ("⚰️", "coffin", "Objects"),
-    ("⚱️", "funeral urn", "Objects"),
-    ("🏺", "amphora", "Objects"),
-    ("💈", "barber pole", "Objects"),
-    ("🔮", "crystal ball", "Objects"),
-    ("📓", "notebook", "Objects"),
-    ("📔", "notebook with decorative cover", "Objects"),
-    ("📒", "ledger", "Objects"),
-    ("📕", "closed book", "Objects"),
-    ("📗", "green book", "Objects"),
-    ("📘", "blue book", "Objects"),
-    ("📙", "orange book", "Objects"),
-    ("📚", "books", "Objects"),
-    ("📰", "newspaper", "Objects"),
-    ("📖", "open book", "Objects"),
-    ("🧷", "safety pin", "Objects"),
-    ("🪡", "needle", "Objects"),
-    ("🧵", "thread", "Objects"),
-    ("🧶", "yarn", "Objects"),
-    ("🔍", "magnifying glass tilted left", "Objects"),
-    ("🔎", "magnifying glass tilted right", "Objects"),
-    ("🧐", "face with monocle", "Smileys"),
+    # Remove trailing modifiers
+    name = re.sub(r'\s+(Facing|Toward|Light|Dark)$', '', name)
 
-    # Symbols
-    ("❤️", "red heart", "Symbols"),
-    ("🧡", "orange heart", "Symbols"),
-    ("💛", "yellow heart", "Symbols"),
-    ("💚", "green heart", "Symbols"),
-    ("💙", "blue heart", "Symbols"),
-    ("💜", "purple heart", "Symbols"),
-    ("🖤", "black heart", "Symbols"),
-    ("🤍", "white heart", "Symbols"),
-    ("🤎", "brown heart", "Symbols"),
-    ("💔", "broken heart", "Symbols"),
-    ("💕", "two hearts", "Symbols"),
-    ("💞", "revolving hearts", "Symbols"),
-    ("💓", "beating heart", "Symbols"),
-    ("💗", "growing heart", "Symbols"),
-    ("💖", "sparkling heart", "Symbols"),
-    ("💘", "heart with arrow", "Symbols"),
-    ("💝", "heart with ribbon", "Symbols"),
-    ("💟", "heart decoration", "Symbols"),
-    ("👋", "waving hand", "Symbols"),
-    ("🤚", "raised back of hand", "Symbols"),
-    ("🖐️", "hand with fingers splayed", "Symbols"),
-    ("✋", "raised hand", "Symbols"),
-    ("🖖", "vulcan salute", "Symbols"),
-    ("👌", "ok hand", "Symbols"),
-    ("🤌", "pinched fingers", "Symbols"),
-    ("🤏", "pinching hand", "Symbols"),
-    ("✌️", "victory hand", "Symbols"),
-    ("🤞", "crossed fingers", "Symbols"),
-    ("🫰", "hand with index and middle fingers crossed", "Symbols"),
-    ("🤟", "sign of the horns", "Symbols"),
-    ("🤘", "sign of the horns", "Symbols"),
-    ("🤙", "call me hand", "Symbols"),
-    ("💅", "nail polish", "Symbols"),
-    ("🤍", "white heart", "Symbols"),
-    ("🤎", "brown heart", "Symbols"),
-    ("✂️", "scissors", "Symbols"),
-    ("✒️", "black nib", "Symbols"),
-    ("🖋️", "fountain pen", "Symbols"),
-    ("🖊️", "pen", "Symbols"),
-    ("🖌️", "paintbrush", "Symbols"),
-    ("🖍️", "crayon", "Symbols"),
-    ("📝", "memo", "Symbols"),
-    ("✏️", "pencil", "Symbols"),
-    ("🔍", "magnifying glass tilted left", "Symbols"),
-    ("🔎", "magnifying glass tilted right", "Symbols"),
-    ("🔏", "locked with pen", "Symbols"),
-    ("🔐", "locked with key", "Symbols"),
-    ("🔒", "locked", "Symbols"),
-    ("💰", "money bag", "Symbols"),
-    ("💴", "yen banknote", "Symbols"),
-    ("💵", "dollar banknote", "Symbols"),
-    ("💶", "euro banknote", "Symbols"),
-    ("💷", "pound banknote", "Symbols"),
-    ("💸", "money with wings", "Symbols"),
-    ("💳", "credit card", "Symbols"),
-    ("🧾", "receipt", "Symbols"),
-    ("✉️", "envelope", "Symbols"),
-    ("📩", "envelope with arrow", "Symbols"),
-    ("📨", "incoming envelope", "Symbols"),
-    ("📤", "outbox tray", "Symbols"),
-    ("📥", "inbox tray", "Symbols"),
-    ("📦", "package", "Symbols"),
-    ("🏷️", "label", "Symbols"),
-    ("🧧", "red envelope", "Symbols"),
-    ("📪", "closed mailbox with lowered flag", "Symbols"),
-    ("📫", "closed mailbox with raised flag", "Symbols"),
-    ("📬", "open mailbox with raised flag", "Symbols"),
-    ("📭", "open mailbox with lowered flag", "Symbols"),
-    ("📮", "postbox", "Symbols"),
-    ("✏️", "pencil", "Symbols"),
-    ("✒️", "black nib", "Symbols"),
-    ("🖋️", "fountain pen", "Symbols"),
-    ("🖊️", "pen", "Symbols"),
-    ("🖌️", "paintbrush", "Symbols"),
-    ("🖍️", "crayon", "Symbols"),
-    ("📝", "memo", "Symbols"),
-]
+    return name.strip()
+
+def should_group(base_name, full_name):
+    """Check if emoji should be grouped as a variant."""
+    if base_name == full_name:
+        return False
+
+    has_variant = any(x in full_name for x in [
+        'Skin Tone', 'Hair', 'Red', 'Orange', 'Yellow', 'Green', 'Blue',
+        'Purple', 'Brown', 'Black', 'White', 'Curly', 'Wavy', 'Straight'
+    ])
+
+    return has_variant
+
+def fetch_unicode_emoji_data():
+    """Fetch official Unicode emoji test data with categories and subgroups."""
+    try:
+        url = "https://www.unicode.org/Public/17.0.0/emoji/emoji-test.txt"
+        print(f"Fetching Unicode emoji data from {url}...")
+
+        with urllib.request.urlopen(url) as response:
+            data = response.read().decode('utf-8')
+
+        # Parse the emoji-test.txt format
+        # Format: code_point ; status ; emoji ; name
+        # Also extract group and subgroup from comments
+        emoji_to_category = {}
+        current_group = "Symbols"
+        current_subgroup = "Other"
+
+        for line in data.split('\n'):
+            line = line.strip()
+
+            # Extract group from comment lines like: # group: Smileys & Emotion
+            if line.startswith('# group:'):
+                current_group = line.split('group:')[1].strip()
+                continue
+
+            # Extract subgroup from comment lines like: # subgroup: face-smiling
+            if line.startswith('# subgroup:'):
+                current_subgroup = line.split('subgroup:')[1].strip()
+                continue
+
+            if not line or line.startswith('#'):
+                continue
+
+            if ';' in line:
+                parts = [p.strip() for p in line.split(';')]
+                if len(parts) >= 4:
+                    code_point_str = parts[0]
+                    status = parts[1]
+
+                    try:
+                        # Handle code points (can be multiple like "1F1E6 1F1E8")
+                        code_points = code_point_str.split()
+                        if code_points:
+                            # Get the first code point to determine category
+                            first_cp = int(code_points[0], 16)
+                            emoji_char = chr(first_cp)
+
+                            if emoji_char not in emoji_to_category:
+                                emoji_to_category[emoji_char] = current_group
+                    except:
+                        pass
+
+        return emoji_to_category
+    except Exception as e:
+        print(f"Failed to fetch Unicode data: {e}")
+        return {}
+
+def get_category_from_name(emoji_name):
+    """Get category based on emoji name."""
+    name = emoji_name.lower()
+
+    if any(x in name for x in ['face', 'smile', 'grin', 'laugh', 'cry', 'eye', 'mouth']):
+        return "Smileys & Emotions"
+    elif any(x in name for x in ['animal', 'cat', 'dog', 'bird', 'monkey', 'bear', 'panda', 'fish', 'bug', 'butterfly', 'lion', 'tiger', 'whale', 'shark', 'snake', 'frog', 'penguin']):
+        return "Animals & Nature"
+    elif any(x in name for x in ['plant', 'tree', 'flower', 'leaf', 'mushroom', 'cactus', 'herb', 'clover']):
+        return "Animals & Nature"
+    elif any(x in name for x in ['food', 'fruit', 'pizza', 'burger', 'rice', 'bread', 'apple', 'orange', 'banana', 'watermelon', 'grape', 'strawberry', 'meat', 'cake', 'candy', 'coffee', 'beer', 'wine']):
+        return "Food & Drink"
+    elif any(x in name for x in ['car', 'train', 'bus', 'airplane', 'rocket', 'ship', 'boat', 'bicycle', 'motorcycle', 'taxi', 'truck', 'travel']):
+        return "Travel & Places"
+    elif any(x in name for x in ['flag', 'country']):
+        return "Flags"
+    elif any(x in name for x in ['heart', 'star', 'diamond', 'gem', 'sparkle', 'sun', 'moon', 'cloud', 'fire', 'water', 'arrow', 'check', 'cross']):
+        return "Symbols"
+    else:
+        return "Symbols"
 
 def generate_emoji_data():
-    """Generate emoji data and save to JSON."""
-    emojis_by_category = {}
-
-    for emoji, name, category in EMOJIS:
-        if category not in emojis_by_category:
-            emojis_by_category[category] = []
-
-        emojis_by_category[category].append({
-            "emoji": emoji,
-            "name": name,
-            "category": category,
-            "searchable": f"{emoji} {name} {category}".lower()
-        })
-
-    # Ensure categories have unique emojis
+    """Generate emoji data using the emoji library with proper categories from Unicode data."""
     all_emojis = []
     seen = set()
-    for category in sorted(emojis_by_category.keys()):
-        for item in emojis_by_category[category]:
-            if item["emoji"] not in seen:
-                all_emojis.append(item)
-                seen.add(item["emoji"])
+
+    # Fetch Unicode category mapping
+    unicode_categories = fetch_unicode_emoji_data()
+
+    # Get all emojis from the library
+    all_emoji_data = emoji.EMOJI_DATA
+
+    for emoji_char, data in all_emoji_data.items():
+        if emoji_char in seen:
+            continue
+
+        try:
+            raw_name = data.get('en', emoji_char)
+            name = clean_emoji_name(raw_name)
+
+            if name == emoji_char or not name:
+                continue
+
+            # Get category from Unicode data first, fall back to name-based categorization
+            if emoji_char in unicode_categories:
+                category = unicode_categories[emoji_char]
+            else:
+                category = get_category_from_name(name)
+
+            all_emojis.append({
+                "emoji": emoji_char,
+                "name": name,
+                "category": category,
+            })
+            seen.add(emoji_char)
+        except Exception as e:
+            pass
+
+    # Group variants
+    grouped_emojis = {}
+    variants_map = {}
+
+    for emoji_item in all_emojis:
+        name = emoji_item["name"]
+        category = emoji_item["category"]
+        base_name = get_base_name(name)
+
+        if should_group(base_name, name):
+            # This is a variant
+            if base_name not in variants_map:
+                variants_map[base_name] = []
+            variants_map[base_name].append(emoji_item)
+        else:
+            # This is a base emoji
+            if base_name not in grouped_emojis:
+                grouped_emojis[base_name] = {
+                    "emoji": emoji_item["emoji"],
+                    "name": name,
+                    "variants": [],
+                    "category": category,
+                    "searchable": f"{emoji_item['emoji']} {name}".lower()
+                }
+
+    # Add variants to their base emojis
+    for base_name, variants in variants_map.items():
+        if base_name in grouped_emojis:
+            for variant in variants:
+                grouped_emojis[base_name]["variants"].append({
+                    "emoji": variant["emoji"],
+                    "name": variant["name"]
+                })
+        else:
+            # If base doesn't exist, create it from first variant
+            if variants:
+                first = variants[0]
+                grouped_emojis[base_name] = {
+                    "emoji": first["emoji"],
+                    "name": base_name,
+                    "variants": [{"emoji": v["emoji"], "name": v["name"]} for v in variants],
+                    "category": first["category"],
+                    "searchable": f"{first['emoji']} {base_name}".lower()
+                }
+
+    # Convert to list, sorted by category then name
+    final_emojis = sorted(
+        grouped_emojis.values(),
+        key=lambda x: (x["category"], x["name"])
+    )
+
+    # Build category list
+    categories = sorted(set(e["category"] for e in final_emojis))
 
     return {
-        "emojis": all_emojis,
-        "categories": sorted(emojis_by_category.keys()),
-        "totalCount": len(all_emojis)
+        "emojis": final_emojis,
+        "categories": categories,
+        "totalCount": len(final_emojis),
+        "variantCount": sum(len(e.get("variants", [])) for e in final_emojis)
     }
 
 if __name__ == "__main__":
@@ -543,5 +227,8 @@ if __name__ == "__main__":
     with open("emojis.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"Generated {data['totalCount']} emojis across {len(data['categories'])} categories")
+    print(f"Generated {data['totalCount']} base emojis with {data['variantCount']} variants across {len(data['categories'])} categories:")
+    for cat in data['categories']:
+        count = sum(1 for e in data['emojis'] if e['category'] == cat)
+        print(f"  - {cat}: {count}")
     print("Saved to emojis.json")

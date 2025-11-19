@@ -47,15 +47,7 @@
                 <!-- Sidebar Navigation -->
                 <aside id="sidebar" class="hidden sm:hidden md:flex fixed md:static left-0 top-20 md:top-auto w-full md:w-48 max-h-[calc(100vh-5rem)] md:max-h-none bg-white flex-col gap-0.5 flex-shrink-0 p-4 md:p-0 overflow-y-auto md:overflow-visible overscroll-y-contain z-40">
                     <button class="sidebar-button active" data-category="all">All</button>
-                    <button class="sidebar-button" data-category="Activities">Activities</button>
-                    <button class="sidebar-button" data-category="Animals">Animals</button>
-                    <button class="sidebar-button" data-category="Drink">Drink</button>
-                    <button class="sidebar-button" data-category="Food">Food</button>
-                    <button class="sidebar-button" data-category="Objects">Objects</button>
-                    <button class="sidebar-button" data-category="People">People</button>
-                    <button class="sidebar-button" data-category="Smileys">Smileys</button>
-                    <button class="sidebar-button" data-category="Symbols">Symbols</button>
-                    <button class="sidebar-button" data-category="Travel">Travel</button>
+                    <div id="categoryTabs"></div>
                 </aside>
 
                 <!-- Emoji Content -->
@@ -68,6 +60,19 @@
                         <p>No emojis found. Try a different search.</p>
                     </div>
                 </section>
+            </div>
+
+            <!-- Variant Modal -->
+            <div id="variantModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                <div class="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+                    <h3 id="variantTitle" class="text-lg font-bold mb-4"></h3>
+                    <div id="variantGrid" class="grid grid-cols-4 gap-3 mb-4">
+                        <!-- Variants will be inserted here -->
+                    </div>
+                    <button id="closeVariantModal" class="w-full px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 text-sm font-medium">
+                        Close
+                    </button>
+                </div>
             </div>
         </main>
 
@@ -101,14 +106,25 @@
             }
         }
 
-        // Initialize category buttons
-        function initializeCategories() {
-            document.querySelectorAll('.sidebar-button').forEach(button => {
-                button.addEventListener('click', () => {
-                    const category = button.dataset.category;
-                    switchCategory(category, button);
-                });
+        // Initialize category buttons from data
+        function initializeCategories(categories) {
+            const tabsContainer = document.getElementById('categoryTabs');
+            tabsContainer.innerHTML = '';
+
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'sidebar-button';
+                button.textContent = category;
+                button.dataset.category = category;
+                button.addEventListener('click', () => switchCategory(category, button));
+                tabsContainer.appendChild(button);
             });
+
+            // Add click handler to All button
+            const allButton = document.querySelector('[data-category="all"]');
+            if (allButton) {
+                allButton.addEventListener('click', () => switchCategory('all', allButton));
+            }
         }
 
         // Switch category
@@ -146,16 +162,59 @@
             }
 
             noResults.classList.add('hidden');
-            grid.innerHTML = emojis.map(item => `
-                <div class="emoji-item" data-emoji="${item.emoji}" title="${item.name}">
-                    <div class="emoji-char">${item.emoji}</div>
-                    <div class="emoji-name">${item.name}</div>
-                </div>
-            `).join('');
+            grid.innerHTML = emojis.map(item => {
+                const hasVariants = item.variants && item.variants.length > 0;
+                const variantIndicator = hasVariants ? '<span style="font-size: 0.7rem; color: #999;">⋮</span>' : '';
+                return `
+                    <div class="emoji-item" data-emoji="${item.emoji}" data-has-variants="${hasVariants}" data-variants='${JSON.stringify(item.variants || [])}' title="${item.name}">
+                        <div class="emoji-char">${item.emoji}</div>
+                        <div class="emoji-name">${item.name}</div>
+                        ${variantIndicator}
+                    </div>
+                `;
+            }).join('');
 
             // Add click handlers
             document.querySelectorAll('.emoji-item').forEach(item => {
-                item.addEventListener('click', () => copyEmoji(item));
+                const hasVariants = item.dataset.hasVariants === 'true';
+                if (hasVariants) {
+                    item.addEventListener('click', () => showVariants(item));
+                } else {
+                    item.addEventListener('click', () => copyEmoji(item));
+                }
+            });
+        }
+
+        // Show variants modal
+        function showVariants(element) {
+            const variants = JSON.parse(element.dataset.variants);
+            const baseEmoji = element.dataset.emoji;
+            const baseName = element.querySelector('.emoji-name').textContent;
+
+            document.getElementById('variantTitle').textContent = `${baseName} - Select a variant`;
+
+            const variantGrid = document.getElementById('variantGrid');
+            variantGrid.innerHTML = `
+                <div class="flex items-center justify-center p-3 rounded bg-gray-200 cursor-pointer hover:bg-gray-300" onclick="copyEmojiDirect('${baseEmoji}')">
+                    <span style="font-size: 2rem;">${baseEmoji}</span>
+                </div>
+                ${variants.map((v, idx) => `
+                    <div class="flex items-center justify-center p-3 rounded bg-gray-200 cursor-pointer hover:bg-gray-300" onclick="copyEmojiDirect('${v.emoji}')">
+                        <span style="font-size: 2rem;">${v.emoji}</span>
+                    </div>
+                `).join('')}
+            `;
+
+            document.getElementById('variantModal').classList.remove('hidden');
+        }
+
+        // Copy emoji directly (for variants)
+        function copyEmojiDirect(emoji) {
+            navigator.clipboard.writeText(emoji).then(() => {
+                showToast(`Copied to clipboard!`);
+                document.getElementById('variantModal').classList.add('hidden');
+            }).catch(() => {
+                showToast('Failed to copy emoji', true);
             });
         }
 
@@ -248,6 +307,18 @@
             hamburger.classList.remove('active');
             sidebar.classList.add('hidden');
         }
+
+        // Close variant modal when close button is clicked
+        document.getElementById('closeVariantModal').addEventListener('click', () => {
+            document.getElementById('variantModal').classList.add('hidden');
+        });
+
+        // Close variant modal when clicking outside
+        document.getElementById('variantModal').addEventListener('click', (e) => {
+            if (e.target.id === 'variantModal') {
+                document.getElementById('variantModal').classList.add('hidden');
+            }
+        });
 
         // Initialize on load
         document.addEventListener('DOMContentLoaded', () => {
