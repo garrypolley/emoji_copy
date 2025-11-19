@@ -186,7 +186,7 @@
             position: sticky;
             top: 0;
             background: white;
-            z-index: 40;
+            z-index: 50;
             padding: 1rem 0;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
@@ -221,9 +221,11 @@
         .sidebar {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 0.75rem;
             width: 180px;
             flex-shrink: 0;
+            align-self: flex-start;
+            margin-top: 0;
         }
 
         .sidebar-button {
@@ -236,6 +238,7 @@
             font-size: 0.875rem;
             font-weight: 500;
             text-align: left;
+            white-space: nowrap;
         }
 
         .sidebar-button.active {
@@ -433,13 +436,19 @@
         function initializeHamburger() {
             const hamburger = document.getElementById('hamburger');
             const sidebar = document.getElementById('sidebar');
+            const allButton = sidebar.querySelector('button[data-category="all"]');
 
             hamburger.addEventListener('click', () => {
                 hamburger.classList.toggle('active');
                 sidebar.classList.toggle('open');
             });
 
-            // Close sidebar when clicking on a button
+            // Handle "All" button click
+            if (allButton) {
+                allButton.addEventListener('click', () => switchCategory('all', allButton));
+            }
+
+            // Close sidebar when clicking on a button (mobile)
             document.querySelectorAll('.sidebar-button').forEach(btn => {
                 btn.addEventListener('click', () => {
                     closeSidebar();
