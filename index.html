@@ -51,6 +51,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
             user-select: none;
+            position: relative;
         }
 
         .emoji-item:hover {
@@ -87,8 +88,23 @@
             color: white;
         }
 
+        .emoji-item.copied .emoji-char {
+            font-size: 2rem;
+        }
+
         .emoji-item.copied .emoji-name {
             color: #d1fae5;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .emoji-item.copied::after {
+            content: '✓';
+            position: absolute;
+            font-size: 1.5rem;
+            color: white;
+            font-weight: bold;
+            margin-top: -1.5rem;
         }
 
         .tab-button {
@@ -300,13 +316,13 @@
             const emoji = element.dataset.emoji;
 
             navigator.clipboard.writeText(emoji).then(() => {
-                // Show visual feedback
+                // Show visual feedback for longer
                 const originalClass = element.className;
                 element.classList.add('copied');
 
                 setTimeout(() => {
                     element.className = originalClass;
-                }, 200);
+                }, 600);
 
                 // Show toast notification
                 showToast(`Copied ${emoji} to clipboard!`);
