@@ -147,11 +147,6 @@ def generate_emoji_data():
         valid_cats = [cat for cat in emoji_item['categories'] if cat in valid_categories]
         emoji_item['category'] = valid_cats[0] if valid_cats else 'Other'
 
-    # Remove the temporary fields
-    for emoji_item in all_emojis:
-        del emoji_item['raw_name']
-        del emoji_item['categories']
-
     # Group variants
     grouped_emojis = {}
     variants_map = {}
@@ -161,11 +156,27 @@ def generate_emoji_data():
         category = emoji_item["category"]
         base_name = get_base_name(name)
 
+        # Build searchable with emoji, name, category, and extract keywords from raw name
+        raw_name = emoji_item.get("raw_name", name)
+        search_parts = [emoji_item["emoji"], name, category]
+
+        # Add keywords from raw name (split by underscore)
+        if raw_name:
+            raw_lower = raw_name.strip(':').lower()
+            for part in raw_lower.split('_'):
+                if part and part not in search_parts:
+                    search_parts.append(part)
+
+        searchable_text = " ".join(search_parts).lower()
+
         if should_group(base_name, name):
             # This is a variant
             if base_name not in variants_map:
                 variants_map[base_name] = []
-            variants_map[base_name].append(emoji_item)
+            variant_item = emoji_item.copy()
+            variant_item.pop('raw_name', None)
+            variant_item.pop('categories', None)
+            variants_map[base_name].append(variant_item)
         else:
             # This is a base emoji
             if base_name not in grouped_emojis:
@@ -174,7 +185,7 @@ def generate_emoji_data():
                     "name": name,
                     "variants": [],
                     "category": category,
-                    "searchable": f"{emoji_item['emoji']} {name}".lower()
+                    "searchable": searchable_text
                 }
 
     # Add variants to their base emojis
