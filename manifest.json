@@ -1,0 +1,33 @@
+{
+  "name": "Emoji Copy - Easy Emoji Clipboard",
+  "short_name": "Emoji Copy",
+  "description": "Copy emojis easily - click to copy any emoji character to your clipboard. Works offline.",
+  "start_url": "/emoji_copy/",
+  "scope": "/emoji_copy/",
+  "display": "standalone",
+  "theme_color": "#3b82f6",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%233b82f6' width='192' height='192'/><text x='50%' y='50%' font-size='120' dy='.3em' text-anchor='middle' dominant-baseline='middle' font-family='system-ui'>😀</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%233b82f6' width='512' height='512'/><text x='50%' y='50%' font-size='320' dy='.3em' text-anchor='middle' dominant-baseline='middle' font-family='system-ui'>😀</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%23f3f4f6' width='540' height='720'/><text x='270' y='100' font-size='60' text-anchor='middle' font-family='system-ui' fill='%233b82f6' font-weight='bold'>Emoji Copy</text><g id='emojis'><text x='60' y='200' font-size='48'>😀</text><text x='150' y='200' font-size='48'>😃</text><text x='240' y='200' font-size='48'>😄</text><text x='330' y='200' font-size='48'>😂</text><text x='420' y='200' font-size='48'>🥰</text></g></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml"
+    }
+  ]
+}

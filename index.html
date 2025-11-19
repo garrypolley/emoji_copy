@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Copy emojis easily - click to copy any emoji character to your clipboard">
+    <meta name="theme-color" content="#1f2937">
+    <title>Emoji Copy - Easily Copy Emojis</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>😀</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .emoji-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .emoji-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            background: #f3f4f6;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .emoji-item:hover {
+            background: #e5e7eb;
+            transform: scale(1.05);
+        }
+
+        .emoji-item:active {
+            transform: scale(0.95);
+        }
+
+        .emoji-char {
+            font-size: 2.5rem;
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+
+        .emoji-name {
+            font-size: 0.625rem;
+            color: #6b7280;
+            text-align: center;
+            line-height: 1.2;
+            max-width: 100%;
+            word-break: break-word;
+            height: 1.5rem;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .emoji-item.copied {
+            background: #10b981;
+            color: white;
+        }
+
+        .emoji-item.copied .emoji-name {
+            color: #d1fae5;
+        }
+
+        .tab-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            background: #e5e7eb;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .tab-button.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .tab-button:hover:not(.active) {
+            background: #d1d5db;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .no-results {
+            text-align: center;
+            color: #9ca3af;
+            padding: 2rem 1rem;
+            font-size: 0.875rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #10b981;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @media (max-width: 640px) {
+            .emoji-grid {
+                grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            }
+
+            .emoji-char {
+                font-size: 2rem;
+            }
+
+            .toast {
+                bottom: 1rem;
+                right: 1rem;
+                left: 1rem;
+            }
+        }
+
+        .header-gradient {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="header-gradient text-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <h1 class="text-3xl sm:text-4xl font-bold">😀 Emoji Copy</h1>
+                <p class="text-blue-100 mt-2 text-sm sm:text-base">Click any emoji to copy it to your clipboard</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8">
+            <!-- Search Bar -->
+            <div class="mb-8">
+                <input
+                    type="text"
+                    id="searchInput"
+                    class="search-input"
+                    placeholder="Search emojis by name or category..."
+                    autocomplete="off"
+                />
+            </div>
+
+            <!-- Category Tabs -->
+            <div class="mb-8 flex flex-wrap gap-2">
+                <button class="tab-button active" data-category="all">All</button>
+                <div id="categoryTabs"></div>
+            </div>
+
+            <!-- Emoji Grid -->
+            <div id="emojiGrid" class="emoji-grid fade-in">
+                <!-- Emojis will be inserted here -->
+            </div>
+
+            <!-- No Results Message -->
+            <div id="noResults" class="no-results" style="display: none;">
+                <p>No emojis found. Try a different search.</p>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-white border-t border-gray-200 mt-12">
+            <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+                <p class="text-center text-gray-600 text-sm">
+                    Made with ❤️ | Works offline · Supports 396+ emojis
+                </p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        let emojiData = [];
+        let currentCategory = 'all';
+
+        // Load emoji data
+        async function loadEmojis() {
+            try {
+                const response = await fetch('emojis.json');
+                if (!response.ok) throw new Error('Failed to load emojis');
+                const data = await response.json();
+                emojiData = data.emojis;
+                initializeCategories(data.categories);
+                renderEmojis(emojiData);
+            } catch (error) {
+                console.error('Error loading emojis:', error);
+                document.getElementById('noResults').textContent = 'Failed to load emojis. Please refresh the page.';
+                document.getElementById('noResults').style.display = 'block';
+            }
+        }
+
+        // Initialize category tabs
+        function initializeCategories(categories) {
+            const tabsContainer = document.getElementById('categoryTabs');
+            categories.forEach(category => {
+                const button = document.createElement('button');
+                button.className = 'tab-button';
+                button.textContent = category;
+                button.dataset.category = category;
+                button.onclick = () => switchCategory(category, button);
+                tabsContainer.appendChild(button);
+            });
+        }
+
+        // Switch category
+        function switchCategory(category, button) {
+            currentCategory = category;
+
+            // Update active button
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+
+            // Clear search
+            document.getElementById('searchInput').value = '';
+
+            // Filter and render
+            const filtered = category === 'all'
+                ? emojiData
+                : emojiData.filter(e => e.category === category);
+            renderEmojis(filtered);
+        }
+
+        // Render emojis
+        function renderEmojis(emojis) {
+            const grid = document.getElementById('emojiGrid');
+            const noResults = document.getElementById('noResults');
+
+            if (emojis.length === 0) {
+                grid.innerHTML = '';
+                noResults.style.display = 'block';
+                return;
+            }
+
+            noResults.style.display = 'none';
+            grid.innerHTML = emojis.map(item => `
+                <div class="emoji-item" data-emoji="${item.emoji}" title="${item.name}">
+                    <div class="emoji-char">${item.emoji}</div>
+                    <div class="emoji-name">${item.name}</div>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            document.querySelectorAll('.emoji-item').forEach(item => {
+                item.addEventListener('click', () => copyEmoji(item));
+            });
+        }
+
+        // Copy emoji to clipboard
+        function copyEmoji(element) {
+            const emoji = element.dataset.emoji;
+
+            navigator.clipboard.writeText(emoji).then(() => {
+                // Show visual feedback
+                const originalClass = element.className;
+                element.classList.add('copied');
+
+                setTimeout(() => {
+                    element.className = originalClass;
+                }, 200);
+
+                // Show toast notification
+                showToast(`Copied ${emoji} to clipboard!`);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                showToast('Failed to copy emoji', true);
+            });
+        }
+
+        // Show toast notification
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            if (isError) {
+                toast.style.background = '#ef4444';
+            }
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+
+            if (!query) {
+                const filtered = currentCategory === 'all'
+                    ? emojiData
+                    : emojiData.filter(em => em.category === currentCategory);
+                renderEmojis(filtered);
+                return;
+            }
+
+            const filtered = emojiData.filter(item =>
+                item.searchable.includes(query)
+            );
+            renderEmojis(filtered);
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', loadEmojis);
+
+        // Register service worker for offline support
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {
+                console.log('Service worker registration failed');
+            });
+        }
+    </script>
+</body>
+</html>
