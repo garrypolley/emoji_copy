@@ -181,6 +181,133 @@
         .header-gradient {
             background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
         }
+
+        .sticky-search {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 40;
+            padding: 1rem 0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background: #3b82f6;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .hamburger.active span:nth-child(1) {
+            transform: rotate(45deg) translate(8px, 8px);
+        }
+
+        .hamburger.active span:nth-child(2) {
+            opacity: 0;
+        }
+
+        .hamburger.active span:nth-child(3) {
+            transform: rotate(-45deg) translate(7px, -7px);
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 180px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-button {
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            background: #e5e7eb;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-align: left;
+        }
+
+        .sidebar-button.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .sidebar-button:hover:not(.active) {
+            background: #d1d5db;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
+
+            .sidebar {
+                display: none;
+                position: fixed;
+                left: 0;
+                top: 70px;
+                width: 100%;
+                max-height: calc(100vh - 70px);
+                background: white;
+                flex-direction: column;
+                padding: 1rem;
+                gap: 0;
+                border-bottom: 1px solid #e5e7eb;
+                overflow-y: auto;
+                z-index: 30;
+            }
+
+            .sidebar.open {
+                display: flex;
+            }
+
+            .sidebar-button {
+                width: 100%;
+                padding: 1rem;
+            }
+
+            .main-container {
+                flex-direction: column;
+                gap: 0;
+                margin-top: 0;
+            }
+
+            .sticky-search {
+                top: 0;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .emoji-grid {
+                grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            }
+
+            .emoji-char {
+                font-size: 2rem;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -194,32 +321,45 @@
         </header>
 
         <!-- Main Content -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8">
-            <!-- Search Bar -->
-            <div class="mb-8">
-                <input
-                    type="text"
-                    id="searchInput"
-                    class="search-input"
-                    placeholder="Search emojis by name or category..."
-                    autocomplete="off"
-                />
+        <main class="flex-1 w-full">
+            <!-- Sticky Search Bar -->
+            <div class="sticky-search max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center gap-4">
+                    <div class="hamburger" id="hamburger">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="search-input flex-1"
+                        placeholder="Search emojis by name or category..."
+                        autocomplete="off"
+                    />
+                </div>
             </div>
 
-            <!-- Category Tabs -->
-            <div class="mb-8 flex flex-wrap gap-2">
-                <button class="tab-button active" data-category="all">All</button>
-                <div id="categoryTabs"></div>
-            </div>
+            <!-- Main Container -->
+            <div class="main-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <!-- Sidebar Navigation -->
+                <nav class="sidebar" id="sidebar">
+                    <button class="sidebar-button active" data-category="all">All</button>
+                    <div id="categoryTabs"></div>
+                </nav>
 
-            <!-- Emoji Grid -->
-            <div id="emojiGrid" class="emoji-grid fade-in">
-                <!-- Emojis will be inserted here -->
-            </div>
+                <!-- Content Area -->
+                <div class="content">
+                    <!-- Emoji Grid -->
+                    <div id="emojiGrid" class="emoji-grid fade-in">
+                        <!-- Emojis will be inserted here -->
+                    </div>
 
-            <!-- No Results Message -->
-            <div id="noResults" class="no-results" style="display: none;">
-                <p>No emojis found. Try a different search.</p>
+                    <!-- No Results Message -->
+                    <div id="noResults" class="no-results" style="display: none;">
+                        <p>No emojis found. Try a different search.</p>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -258,7 +398,7 @@
             const tabsContainer = document.getElementById('categoryTabs');
             categories.forEach(category => {
                 const button = document.createElement('button');
-                button.className = 'tab-button';
+                button.className = 'sidebar-button';
                 button.textContent = category;
                 button.dataset.category = category;
                 button.onclick = () => switchCategory(category, button);
@@ -271,7 +411,7 @@
             currentCategory = category;
 
             // Update active button
-            document.querySelectorAll('.tab-button').forEach(btn => {
+            document.querySelectorAll('.sidebar-button').forEach(btn => {
                 btn.classList.remove('active');
             });
             button.classList.add('active');
@@ -284,6 +424,41 @@
                 ? emojiData
                 : emojiData.filter(e => e.category === category);
             renderEmojis(filtered);
+
+            // Close mobile menu
+            closeSidebar();
+        }
+
+        // Hamburger menu functionality
+        function initializeHamburger() {
+            const hamburger = document.getElementById('hamburger');
+            const sidebar = document.getElementById('sidebar');
+
+            hamburger.addEventListener('click', () => {
+                hamburger.classList.toggle('active');
+                sidebar.classList.toggle('open');
+            });
+
+            // Close sidebar when clicking on a button
+            document.querySelectorAll('.sidebar-button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    closeSidebar();
+                });
+            });
+
+            // Close sidebar when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!sidebar.contains(e.target) && !hamburger.contains(e.target)) {
+                    closeSidebar();
+                }
+            });
+        }
+
+        function closeSidebar() {
+            const hamburger = document.getElementById('hamburger');
+            const sidebar = document.getElementById('sidebar');
+            hamburger.classList.remove('active');
+            sidebar.classList.remove('open');
         }
 
         // Render emojis
@@ -366,7 +541,10 @@
         });
 
         // Initialize on load
-        document.addEventListener('DOMContentLoaded', loadEmojis);
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEmojis();
+            initializeHamburger();
+        });
 
         // Register service worker for offline support
         if ('serviceWorker' in navigator) {
