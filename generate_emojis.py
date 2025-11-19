@@ -15,24 +15,43 @@ def clean_emoji_name(raw_name):
     name = ' '.join(word.capitalize() for word in name.split())
     return name
 
-def extract_categories_from_name(raw_name):
+def extract_categories_from_name(raw_name, aliases=None):
     """Extract all categories from emoji name by splitting on underscores."""
-    name = raw_name.strip(':')
-    parts = name.split('_')
 
-    # Clean up parts - remove numbers, short parts, and special cases
-    categories = []
-    for part in parts:
-        # Skip numbers and very short parts
-        if part.isdigit() or len(part) < 2:
-            continue
-        # Skip common connectors
-        if part in ['with', 'and', 'of', 'for', 'in', 'on', 'at', 'to', 'by']:
-            continue
-        # Capitalize and add
-        categories.append(part.capitalize())
+    # Skip these words - they're modifiers or connectors, not real categories
+    skip_words = {
+        'with', 'and', 'of', 'for', 'in', 'on', 'at', 'to', 'by',
+        'dark', 'light', 'medium', 'large', 'small', 'pale', 'bright',
+        'heavy', 'soft', 'hard', 'thin', 'thick', 'short', 'long',
+        'raised', 'lowered', 'facing', 'pointing', 'leftwards', 'rightwards',
+        'upwards', 'downwards', 'man', 'woman', 'person', 'skin', 'tone'
+    }
 
-    return categories
+    categories = set()
+
+    # Check aliases first (they often have better categorization like "flag_for_*")
+    all_names = [raw_name]
+    if aliases:
+        all_names.extend(aliases)
+
+    for name in all_names:
+        name = name.strip(':')
+        parts = name.split('_')
+
+        for part in parts:
+            # Skip numbers and very short parts
+            if part.isdigit() or len(part) < 2:
+                continue
+            # Skip known connector/modifier words
+            if part.lower() in skip_words:
+                continue
+            # Skip anything containing hyphens (compound modifiers like medium-dark)
+            if '-' in part:
+                continue
+            # Capitalize and add
+            categories.add(part.capitalize())
+
+    return list(categories)
 
 def get_base_name(emoji_name):
     """Extract base name from emoji, removing variant indicators."""
@@ -68,7 +87,7 @@ def should_group(base_name, full_name):
     return has_variant
 
 def generate_emoji_data():
-    """Generate emoji data using the emoji library with categories extracted from names."""
+    """Generate emoji data using the emoji library with categories extracted from names and aliases."""
     all_emojis = []
     seen = set()
     category_counts = defaultdict(int)
@@ -90,8 +109,9 @@ def generate_emoji_data():
             if not name:
                 continue
 
-            # Extract categories from the name
-            categories = extract_categories_from_name(raw_name)
+            # Extract categories from the name and aliases
+            aliases = data.get('alias', [])
+            categories = extract_categories_from_name(raw_name, aliases)
 
             all_emojis.append({
                 "emoji": emoji_char,
@@ -107,8 +127,15 @@ def generate_emoji_data():
         except Exception as e:
             pass
 
-    # Filter categories to only those with 3+ emojis
-    valid_categories = {cat for cat, count in category_counts.items() if count >= 3}
+    # Get top 15 categories by count
+    top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+    valid_categories = {cat for cat, count in top_categories}
+
+    # Explicitly include important categories even if they're not in top 15
+    important_categories = {'Flag', 'Arrow', 'Face', 'Hand', 'Heart'}
+    for cat in important_categories:
+        if category_counts.get(cat, 0) >= 10:
+            valid_categories.add(cat)
 
     # Assign primary category (first valid one, or "Other")
     for emoji_item in all_emojis:
