@@ -24,7 +24,10 @@ def extract_categories_from_name(raw_name, aliases=None):
         'dark', 'light', 'medium', 'large', 'small', 'pale', 'bright',
         'heavy', 'soft', 'hard', 'thin', 'thick', 'short', 'long',
         'raised', 'lowered', 'facing', 'pointing', 'leftwards', 'rightwards',
-        'upwards', 'downwards', 'man', 'woman', 'person', 'skin', 'tone'
+        'upwards', 'downwards', 'man', 'woman', 'skin', 'tone',
+        'couple', 'right', 'left', 'walking', 'running',
+        'men', 'women', 'holding', 'ear', 'kneeling', 'people',
+        'button', 'hair', 'wrestling', 'bunny'
     }
 
     categories = set()
@@ -48,8 +51,16 @@ def extract_categories_from_name(raw_name, aliases=None):
             # Skip anything containing hyphens (compound modifiers like medium-dark)
             if '-' in part:
                 continue
+
+            # Convert to singular form (remove common plural endings)
+            singular = part
+            if part.endswith('es'):
+                singular = part[:-2]
+            elif part.endswith('s') and not part.endswith('ss'):
+                singular = part[:-1]
+
             # Capitalize and add
-            categories.add(part.capitalize())
+            categories.add(singular.capitalize())
 
     return list(categories)
 
@@ -127,15 +138,9 @@ def generate_emoji_data():
         except Exception as e:
             pass
 
-    # Get top 15 categories by count
-    top_categories = sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:15]
-    valid_categories = {cat for cat, count in top_categories}
-
-    # Explicitly include important categories even if they're not in top 15
-    important_categories = {'Flag', 'Arrow', 'Face', 'Hand', 'Heart'}
-    for cat in important_categories:
-        if category_counts.get(cat, 0) >= 10:
-            valid_categories.add(cat)
+    # Use only meaningful categories
+    whitelist_categories = {'Arrow', 'Face', 'Flag', 'Hand', 'Heart', 'Kiss', 'Person', 'Wheelchair'}
+    valid_categories = {cat for cat, count in category_counts.items() if cat in whitelist_categories}
 
     # Assign primary category (first valid one, or "Other")
     for emoji_item in all_emojis:
