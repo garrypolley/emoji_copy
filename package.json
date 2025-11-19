@@ -1,0 +1,25 @@
+{
+  "name": "emoji_copy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "sw.js",
+  "scripts": {
+    "build:css": "tailwindcss -i input.css -o output.css",
+    "watch:css": "tailwindcss -i input.css -o output.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/garrypolley/emoji_copy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/garrypolley/emoji_copy/issues"
+  },
+  "homepage": "https://github.com/garrypolley/emoji_copy#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.17",
+    "tailwindcss": "^4.1.17"
+  }
+}
